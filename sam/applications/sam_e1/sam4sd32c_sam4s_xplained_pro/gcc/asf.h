@@ -118,5 +118,7 @@
 #include <tc.h>
 #include <pdc.h>
 #include <udc.h>
+#include <spi.h>
+#include <spi_master.h>
 
 #endif // ASF_H

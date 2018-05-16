@@ -65,6 +65,8 @@ CSRCS = \
        common/utils/stdio/write.c                         \
        sam/applications/sam_e1/main.c                     \
        sam/applications/sam_e1/e1_ssc_tc.c                \
+       sam/applications/sam_e1/idt82v2081.c               \
+       sam/applications/sam_e1/idt82v2081_asf.c           \
        sam/applications/sam_e1/hardfault.c                \
        sam/boards/sam4s_xplained_pro/init.c               \
        sam/drivers/adc/adc.c                              \

@@ -127,6 +127,13 @@ void e1_init_gpio()
 	pio_configure_pin(PIO_PA20_IDX, PIO_PERIPH_A); /* RF */
 	pio_configure_pin(PIO_PC26_IDX, PIO_PERIPH_B); /* TIOA4 */
 	//pio_configure_pin(PIO_PC27_IDX, PIO_PERIPH_B); /* TIOB4 */
+
+	/* SPI to LIU */
+	pio_configure_pin(PIO_PC27_IDX, PIO_INPUT); /* !LIU_INT */
+	pio_configure_pin(PIO_PA9_IDX, PIO_PERIPH_B); /* NPCS1 / !LIU_CS */
+	pio_configure_pin(PIO_PA12_IDX, PIO_PERIPH_A); /* LIU_MISO */
+	pio_configure_pin(PIO_PA14_IDX, PIO_PERIPH_A); /* LIU_SCLK */
+	pio_configure_pin(PIO_PA13_IDX, PIO_PERIPH_A); /* LIU_MOSI */
 }
 
 void e1_ssc_init()
@@ -220,15 +227,3 @@ void e1_ssc_init()
 	ssc_enable_tx(SSC);
 #endif
 }
-
-#if 0
-static struct idt82 g_idt;
-
-static void idt_init()
-{
-	idt82_at91_init(&g_idt, SPI, ID_SPI, );
-	idt82_init(&g_idt);
-	idt82_mode(&g_idt, IDT_MODE_E1);
-	idt82_termination(&g_idt, IDT_TERM_INT_120);
-}
-#endif

@@ -90,6 +90,7 @@
 #include "conf_usb.h"
 #include "low_power_board.h"
 #include "e1_ssc_tc.h"
+#include "idt82v2081_asf.h"
 
 #if !defined(PMC_PCK_PRES_CLK_1)
 #define PMC_PCK_PRES_CLK_1   PMC_PCK_PRES(0)
@@ -146,6 +147,8 @@ uint32_t g_ul_current_mck;
 
 /** Button pressed flag */
 volatile uint32_t g_ul_button_pressed = 0;
+
+static struct idt82 g_idt;
 
 /**
  * \brief Set default clock (MCK = 24MHz).
@@ -450,9 +453,14 @@ int main(void)
 	if (!udc_include_vbus_monitoring())
 		main_vbus_action(true);
 
+	/* General SSC for E1 init */
 	e1_init_gpio();
 	e1_tc_align_init();
 	e1_ssc_init();
+
+	/* LIU specific bits */
+	idt82_asf_init(&g_idt, SPI, 1);
+	idt82_init(&g_idt);
 
 	/* Test core consumption */
 	test_core();
