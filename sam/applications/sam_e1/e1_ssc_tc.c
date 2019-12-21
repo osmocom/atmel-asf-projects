@@ -133,17 +133,19 @@ void SSC_Handler(void)
 
 	if (status & SSC_SR_ENDRX) {
 		struct ssc_buffer *sb_cur = &g_pdc_ssc_rx_buffer[g_pdc_ssc_cur_rx_idx];
-		int next_rx_idx = (g_pdc_ssc_cur_rx_idx + 1) % NUM_RX_BUF_SSC;
+		/* next to be submitted buffer is current + 2 (!) */
+		int next_submit_idx = (g_pdc_ssc_cur_rx_idx + 2) % NUM_RX_BUF_SSC;
 		bool rc;
 		/* refill only the 'next' DMA buffer; PDC has copied previous next to current */
-		pdc_rx_init(g_pdc, NULL, &g_pdc_ssc_rx_buffer[next_rx_idx].packet);
+		pdc_rx_init(g_pdc, NULL, &g_pdc_ssc_rx_buffer[next_submit_idx].packet);
 		//printf("E%d", g_pdc_ssc_cur_rx_idx);
 		if (g_pdc_ssc_cur_rx_idx == 1)
 			ensure_alignment(sb_cur->buffer);
 		/* hand over to USB ISO IN */
 		rc = udi_vendor_iso_in_run(sb_cur->buffer, sizeof(sb_cur->buffer), usb_iso_in_cb);
 		if (rc == false) printf("x");
-		g_pdc_ssc_cur_rx_idx = next_rx_idx;
+		/* currently receiving (next to complete) is current + 1 */
+		g_pdc_ssc_cur_rx_idx = (g_pdc_ssc_cur_rx_idx + 1) % NUM_RX_BUF_SSC;
 	}
 	if (status & SSC_SR_RXBUFF) {
 		/* this means both current and next buffer have ended.  Shouldn't happen,
@@ -155,10 +157,12 @@ void SSC_Handler(void)
 	}
 #ifdef TX_ENABLE
 	if (status & SSC_SR_ENDTX) {
-		int next_tx_idx = (g_pdc_ssc_cur_tx_idx + 1) % NUM_TX_BUF_SSC;
-		pdc_tx_init(g_pdc, NULL, &g_pdc_ssc_tx_buffer[next_tx_idx].packet);
+		/* next to be submitted buffer is current + 2 (!) */
+		int next_submit_idx = (g_pdc_ssc_cur_tx_idx + 2) % NUM_TX_BUF_SSC;
+		pdc_tx_init(g_pdc, NULL, &g_pdc_ssc_tx_buffer[next_submit_idx].packet);
 		//printf("e%d", g_pdc_ssc_cur_tx_idx);
-		g_pdc_ssc_cur_tx_idx = next_tx_idx;
+		/* currently transmitting (next to complete) is current + 1 */
+		g_pdc_ssc_cur_tx_idx = (g_pdc_ssc_cur_tx_idx + 1) % NUM_TX_BUF_SSC;
 	}
 	if (status & SSC_SR_TXBUFE) {
 		printf("TXBUFE!\r\n");
