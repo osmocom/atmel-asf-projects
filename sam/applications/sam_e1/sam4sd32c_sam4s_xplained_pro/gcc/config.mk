@@ -68,6 +68,7 @@ CSRCS = \
        sam/applications/sam_e1/idt82v2081.c               \
        sam/applications/sam_e1/idt82v2081_asf.c           \
        sam/applications/sam_e1/hardfault.c                \
+       thirdparty/microvty/microvty.c			  \
        sam/boards/sam4s_xplained_pro/init.c               \
        sam/drivers/adc/adc.c                              \
        sam/drivers/adc/adc_sam3u.c                        \
@@ -139,7 +140,8 @@ INC_PATH = \
        sam/utils/preprocessor                             \
        thirdparty/CMSIS/Include                           \
        thirdparty/CMSIS/Lib/GCC \
-       sam/applications/sam_e1/sam4sd32c_sam4s_xplained_pro/gcc
+       thirdparty/microvty \
+       sam/applications/sam_e1/sam4sd32c_sam4s_xplained_pro/gcc \
 
 # Additional search paths for libraries.
 LIB_PATH =  \
@@ -147,6 +149,7 @@ LIB_PATH =  \
 
 # List of libraries to use during linking.
 LIBS =  \
+       osmocore \
        arm_cortexM4l_math                                 \
        m                                                 
 
@@ -176,7 +179,8 @@ ARFLAGS =
 ASFLAGS = 
 
 # Extra flags to use when compiling.
-CFLAGS = 
+CFLAGS = \
+       -I /usr/local/arm-none-eabi/include
 
 # Extra flags to use when preprocessing.
 #
@@ -198,6 +202,7 @@ CPPFLAGS = \
 
 # Extra flags to use when linking
 LDFLAGS = \
+	-L /usr/local/arm-none-eabi/lib
 
 # Pre- and post-build commands
 PREBUILD_CMD = 
