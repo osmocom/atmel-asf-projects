@@ -56,6 +56,20 @@ void e1_tc_align_set(uint8_t pos)
 	tc_write_ra(TC_ALIGN, TC_CHANNEL_ALIGN, pos);
 }
 
+void e1_tc_align_increment(void)
+{
+	uint32_t ra = tc_read_ra(TC_ALIGN, TC_CHANNEL_ALIGN);
+
+	ra++;
+	if (ra >= 256) {
+		/* we cannot set RA to 0 (no pulse generated), so restart */
+		tc_write_ra(TC_ALIGN, TC_CHANNEL_ALIGN, 1);
+		tc_start(TC_ALIGN, TC_CHANNEL_ALIGN);
+	} else {
+		/* generate frame signal one bit later */
+		tc_write_ra(TC_ALIGN, TC_CHANNEL_ALIGN, ra);
+	}
+}
 
 
 /***********************************************************************
@@ -94,6 +108,18 @@ static void ssc_buffer_init(struct ssc_buffer *buf, unsigned int num)
 	}
 }
 
+static void ensure_alignment(struct ssc_buffer *buf)
+{
+	unsigned int i;
+	/* check every second TS0 byte for FAS symbol (G.704 Section 2.3) */
+	for (i = 512; i < sizeof(buf->buffer); i += 32*2) {
+		if ((buf->buffer[i] & 0x7f) != 0x1b) {
+			e1_tc_align_increment();
+			return;
+		}
+	}
+}
+
 static void usb_iso_in_cb(udd_ep_status_t status, iram_size_t nb_transfered, udd_ep_id_t ep)
 {
 	if (status != UDD_EP_TRANSFER_OK)
@@ -112,7 +138,9 @@ void SSC_Handler(void)
 		/* refill only the 'next' DMA buffer; PDC has copied previous next to current */
 		pdc_rx_init(g_pdc, NULL, &g_pdc_ssc_rx_buffer[next_rx_idx].packet);
 		//printf("E%d", g_pdc_ssc_cur_rx_idx);
-		/* FIXME: hand over to USB ISO IN */
+		if (g_pdc_ssc_cur_rx_idx == 1)
+			ensure_alignment(sb_cur->buffer);
+		/* hand over to USB ISO IN */
 		rc = udi_vendor_iso_in_run(sb_cur->buffer, sizeof(sb_cur->buffer), usb_iso_in_cb);
 		if (rc == false) printf("x");
 		g_pdc_ssc_cur_rx_idx = next_rx_idx;
