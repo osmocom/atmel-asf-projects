@@ -92,6 +92,8 @@
 #include "e1_ssc_tc.h"
 #include "idt82v2081_asf.h"
 
+#include "microvty.h"
+
 #if !defined(PMC_PCK_PRES_CLK_1)
 #define PMC_PCK_PRES_CLK_1   PMC_PCK_PRES(0)
 #define PMC_PCK_PRES_CLK_2   PMC_PCK_PRES(1)
@@ -263,29 +265,9 @@ static void reconfigure_console(uint32_t ul_mck, uint32_t ul_baudrate)
 }
 #endif
 
-/**
- * \brief Initialize the chip for low power test.
- */
-static void init_chip(void)
+bool microvty_cb_uart_rx_not_empty(void)
 {
-#if SAMG55
-	/* Wait for the transmission done before changing clock */
-	while (!usart_is_tx_empty(CONSOLE_UART)) {
-	}
-#else
-	/* Wait for the transmission done before changing clock */
-	while (!uart_is_tx_empty(CONSOLE_UART)) {
-	}
-#endif
-
-	/* Disable all the peripheral clocks */
-	pmc_disable_all_periph_clk();
-
-	/* Disable brownout detector */
-	supc_disable_brownout_detector(SUPC);
-
-	/* Initialize the specific board */
-	//init_specific_board();
+	return usart_serial_is_rx_ready(UART1);
 }
 
 /**
@@ -372,49 +354,56 @@ static void dump_all_tc_cv()
 		printf("TC1/%d: %u\n\r", i, tc_read_cv(TC1, i));
 }
 
-/**
- * \brief Test Core consumption.
- */
-static void test_core(void)
+DEFUN(vty_tc_dump_cv, tc_dump_cv_cmd, "tc-dump-cv", "Dump the CV of all TC")
 {
-	uint8_t uc_key = 0;
-
-	while (1) {
-		/* Display menu */
-		display_menu_core();
-
-		/* Read a key from console */
-		scanf("%c", (char *)&uc_key);
-
-		switch (uc_key) {
-		case 't':
-			dump_all_tc_cv();
-			break;
-		/* Configuration */
-		case 'f':
-		case 'F':
-			efc_set_flash_access_mode(EFC, 0); /* 128-bit */
-			break;
-
-		case 'g':
-		case 'G':
-			efc_set_flash_access_mode(EFC, EEFC_FMR_FAM); /* 64-bit */
-			break;
-
-		/* Quit test */
-		case 'q':
-		case 'Q':
-			goto test_core_end;
-
-		default:
-			puts("This menu does not exist !\r");
-			break;
-		}       /* Switch */
-	}
-
-test_core_end:
-	puts(" Exit from core consumption test mode.\r");
+	dump_all_tc_cv();
 }
+
+DEFUN(vty_idt_read, idt_read_cmd, "idt-read", "Read IDT82 register")
+{
+	long reg;
+
+	if (argc < 2) {
+		/* dump them all */
+		for (reg = 0; reg < 32; reg += 8) {
+			printf("\tIDT82 0x%02lx: %02x %02x %02x %02x %02x %02x %02x %02x\r\n", reg,
+				idt82_reg_read(&g_idt, reg),
+				idt82_reg_read(&g_idt, reg+1),
+				idt82_reg_read(&g_idt, reg+2),
+				idt82_reg_read(&g_idt, reg+3),
+				idt82_reg_read(&g_idt, reg+4),
+				idt82_reg_read(&g_idt, reg+5),
+				idt82_reg_read(&g_idt, reg+6),
+				idt82_reg_read(&g_idt, reg+7)
+				);
+		}
+		return;
+	}
+	reg = strtol(argv[1], NULL, 0);
+
+	printf("IDT82 Register 0x%02lx: 0x%02x\r\n", reg, idt82_reg_read(&g_idt, reg));
+}
+
+DEFUN(vty_idt_write, idt_write_cmd, "idt-write", "Write to SPI register")
+{
+	long reg, val;
+
+	if (argc < 2) {
+		printf("You must specify the register\r\n");
+		return;
+	}
+	reg = strtol(argv[1], NULL, 0);
+
+	if (argc < 3) {
+		printf("You must specify the value\r\n");
+		return;
+	}
+	val = strtol(argv[2], NULL, 0);
+
+	idt82_reg_write(&g_idt, reg, val);
+	printf("IDT82 Register 0x%02lx: Written 0x%02lx\r\n", reg, val);
+}
+
 
 static void main_vbus_action(bool b_high)
 {
@@ -439,11 +428,13 @@ int main(void)
 	/* Initialize the console uart */
 	configure_console();
 
+	microvty_init("sam_e1> ");
+	microvty_register(&idt_read_cmd);
+	microvty_register(&idt_write_cmd);
+	microvty_register(&tc_dump_cv_cmd);
+
 	/* Output example information */
 	puts(STRING_HEADER);
-
-	/* Initialize the chip for the power consumption test */
-	init_chip();
 
 	/* Set default clock and re-configure UART */
 	set_default_working_clock();
@@ -462,10 +453,9 @@ int main(void)
 	idt82_asf_init(&g_idt, SPI, 1);
 	idt82_init(&g_idt);
 
-	/* Test core consumption */
-	test_core();
-
+	microvty_print_prompt();
 	while (1) {
+		microvty_try_recv();
 	}
 }
 
