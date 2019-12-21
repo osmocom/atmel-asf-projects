@@ -42,7 +42,6 @@ void e1_tc_align_init(void)
 	tc_write_rc(TC_ALIGN, TC_CHANNEL_ALIGN, 256);
 	/* use RA to shift position of rising edge of generated frame signal */
 	tc_write_ra(TC_ALIGN, TC_CHANNEL_ALIGN, 16);
-	tc_write_rb(TC_ALIGN, TC_CHANNEL_ALIGN, 64);
 
 	tc_start(TC_ALIGN, TC_CHANNEL_ALIGN);
 }
@@ -55,8 +54,6 @@ uint32_t e1_tc_align_read(void)
 void e1_tc_align_set(uint8_t pos)
 {
 	tc_write_ra(TC_ALIGN, TC_CHANNEL_ALIGN, pos);
-	tc_write_rb(TC_ALIGN, TC_CHANNEL_ALIGN, (pos+16)%256);
-	tc_start(TC_ALIGN, TC_CHANNEL_ALIGN);
 }
 
 
