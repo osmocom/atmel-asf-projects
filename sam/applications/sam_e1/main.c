@@ -1,95 +1,11 @@
-/**
- * \file
- *
- * \brief Low Power Application.
- *
- * Copyright (c) 2012-2016 Atmel Corporation. All rights reserved.
- *
- * \asf_license_start
- *
- * \page License
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. The name of Atmel may not be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * 4. This software may only be redistributed and used in connection with an
- *    Atmel microcontroller product.
- *
- * THIS SOFTWARE IS PROVIDED BY ATMEL "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE
- * EXPRESSLY AND SPECIFICALLY DISCLAIMED. IN NO EVENT SHALL ATMEL BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * \asf_license_stop
- *
- */
-
-/**
- * \mainpage Low Power Application
- *
- * \section Purpose
- *
- * This example shows all the different low power modes with several types
- * of wake-up sources. And the consumption of the core in different power
- * modes can be measured.
- *
- * \section Requirements
- *
- * This package can be used with SAM evaluation kits.
- *
- * \section Description
- *
- * The program will display a menu on console. It allows users to change the
- * configuration and enter into a different power mode, and then measure the
- * power consumption.
- *
- * For Eks, an amperemeter has to be plugged on the board instead of the
- * VDDx jumper.
- *
- * Note that for better consumption measurement:
- * - Run program out of flash without ICE connected.
- *
- * \section Usage
- *
- * -# Build the program and download it into the evaluation board.
- * -# On the computer, open and configure a terminal application
- *    (e.g., HyperTerminal on Microsoft Windows) with these settings:
- *   - 115200 bauds
- *   - 8 bits of data
- *   - No parity
- *   - 1 stop bit
- *   - No flow control
- * -# Start the application.
- */
-/*
- * Support and FAQ: visit <a href="http://www.atmel.com/design-support/">Atmel Support</a>
- */
-
 #include <asf.h>
 #include "stdio_serial.h"
 #include "conf_board.h"
 #include "conf_clock.h"
 #include "conf_uart_serial.h"
 #include "conf_usb.h"
-#include "low_power_board.h"
 #include "e1_ssc_tc.h"
+#include "low_power_board.h"
 #include "idt82v2081_asf.h"
 
 #include "microvty.h"
@@ -146,6 +62,8 @@
 
 /** Current MCK in Hz */
 uint32_t g_ul_current_mck;
+
+volatile uint32_t g_ul_ms_ticks;
 
 /** Button pressed flag */
 volatile uint32_t g_ul_button_pressed = 0;
@@ -404,6 +322,24 @@ DEFUN(vty_idt_write, idt_write_cmd, "idt-write", "Write to SPI register")
 	printf("IDT82 Register 0x%02lx: Written 0x%02lx\r\n", reg, val);
 }
 
+DEFUN(vty_tca_write, tca_write_cmd, "tc-align-write", "Write to TC Align register")
+{
+	long val;
+
+	if (argc < 2) {
+		printf("You must specify the value\r\n");
+		return;
+	}
+	val = strtol(argv[1], NULL, 0);
+
+	if (val < 0 || val > 256) {
+		printf("Value out of range <0..255>\r\n");
+		return;
+	}
+
+	e1_tc_align_set(val);
+}
+
 
 static void main_vbus_action(bool b_high)
 {
@@ -411,6 +347,11 @@ static void main_vbus_action(bool b_high)
 		udc_attach();
 	else
 		udc_detach();
+}
+
+void SysTick_Handler(void)
+{
+	g_ul_ms_ticks++;
 }
 
 /**
@@ -424,6 +365,10 @@ int main(void)
 	sysclk_init();
 	g_ul_current_mck = sysclk_get_cpu_hz();
 	board_init();
+	SysTick_Config(sysclk_get_cpu_hz() / 1000);
+
+	udc_start();
+	udc_detach();
 
 	/* Initialize the console uart */
 	configure_console();
@@ -432,15 +377,15 @@ int main(void)
 	microvty_register(&idt_read_cmd);
 	microvty_register(&idt_write_cmd);
 	microvty_register(&tc_dump_cv_cmd);
-
-	/* Output example information */
-	puts(STRING_HEADER);
+	microvty_register(&tca_write_cmd);
 
 	/* Set default clock and re-configure UART */
 	set_default_working_clock();
 	reconfigure_console(g_ul_current_mck, CONF_UART_BAUDRATE);
 
-	udc_start();
+	/* Output example information */
+	puts(STRING_HEADER);
+
 	if (!udc_include_vbus_monitoring())
 		main_vbus_action(true);
 

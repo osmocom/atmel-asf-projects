@@ -3,36 +3,13 @@
 #include <string.h>
 #include <asf.h>
 #include "conf_board.h"
+#include "e1_ssc_tc.h"
 
-/* enable Transmit support */
-#define TX_ENABLE
+#include <osmocom/core/utils.h>
 
-static int g_ssc_num_overruns;
-static Pdc* g_pdc;
-
-
-/* 1024 bytes covers 32 frames of 32bytes (256bits) each.
- * At frame rate of 8000 Hz, this means 1024 bytes represent 4ms */
-#define BUFFER_SIZE	1024
-
-static uint8_t g_pdc_ssc_buffer0[BUFFER_SIZE];
-static pdc_packet_t g_pdc_ssc_rx_packet0 = {
-	.ul_addr = &g_pdc_ssc_buffer0,
-	.ul_size = BUFFER_SIZE/4, /* 32bit transfers, so 4 bytes per transfer */
-};
-static uint8_t g_pdc_ssc_buffer1[BUFFER_SIZE];
-static pdc_packet_t g_pdc_ssc_rx_packet1 = {
-	.ul_addr = &g_pdc_ssc_buffer1,
-	.ul_size = BUFFER_SIZE/4, /* 32bit transfers, so 4 bytes per transfer */
-};
-
-static uint8_t g_pdc_ssc_buffer2[BUFFER_SIZE];
-static pdc_packet_t g_pdc_ssc_tx_packet = {
-	.ul_addr = &g_pdc_ssc_buffer2,
-	.ul_size = BUFFER_SIZE/4, /* 32bit transfers, so 4 bytes per transfer */
-};
-
-
+/***********************************************************************
+ * Timer/Counter block for FRAME generation
+ ***********************************************************************/
 
 /* We use one timer/counter block to generate an artificial frame signal from the
  * received/recovered clock, which we then feed into the SSC for bit/octet-alignment */
@@ -41,7 +18,7 @@ static pdc_packet_t g_pdc_ssc_tx_packet = {
 #define TC_ALIGN		TC1	/* instance 1 */
 #define TC_CHANNEL_ALIGN	1	/* TC1 on instance 1 */
 
-void e1_tc_align_init()
+void e1_tc_align_init(void)
 {
 	printf("%s\n\r", __func__);
 	sysclk_enable_peripheral_clock(ID_TC_ALIGN);
@@ -70,9 +47,60 @@ void e1_tc_align_init()
 	tc_start(TC_ALIGN, TC_CHANNEL_ALIGN);
 }
 
-uint32_t e1_tc_align_read()
+uint32_t e1_tc_align_read(void)
 {
 	return tc_read_cv(TC_ALIGN, TC_CHANNEL_ALIGN);
+}
+
+void e1_tc_align_set(uint8_t pos)
+{
+	tc_write_ra(TC_ALIGN, TC_CHANNEL_ALIGN, pos);
+	tc_write_rb(TC_ALIGN, TC_CHANNEL_ALIGN, (pos+16)%256);
+	tc_start(TC_ALIGN, TC_CHANNEL_ALIGN);
+}
+
+
+
+/***********************************************************************
+ * SSC code (using PDC)
+ ***********************************************************************/
+
+/* enable Transmit support */
+#define TX_ENABLE
+
+static int g_ssc_num_overruns;
+static Pdc* g_pdc;
+
+
+/* 1024 bytes covers 32 frames of 32bytes (256bits) each.
+ * At frame rate of 8000 Hz, this means 1024 bytes represent 4ms */
+#define BUFFER_SIZE	1024
+#define NUM_RX_BUF_SSC	2
+#define NUM_TX_BUF_SSC	2
+
+struct ssc_buffer {
+	uint8_t buffer[BUFFER_SIZE];
+	pdc_packet_t packet;
+};
+
+static int g_pdc_ssc_cur_rx_idx = 0;
+static struct ssc_buffer g_pdc_ssc_rx_buffer[NUM_RX_BUF_SSC];
+static int g_pdc_ssc_cur_tx_idx = 0;
+static struct ssc_buffer g_pdc_ssc_tx_buffer[NUM_TX_BUF_SSC];
+
+static void ssc_buffer_init(struct ssc_buffer *buf, unsigned int num)
+{
+	unsigned int i;
+	for (i = 0; i < num; i++) {
+		buf[i].packet.ul_addr = (uint32_t) &buf[i].buffer;
+		buf[i].packet.ul_size = sizeof(buf[i].buffer)/4;
+	}
+}
+
+static void usb_iso_in_cb(udd_ep_status_t status, iram_size_t nb_transfered, udd_ep_id_t ep)
+{
+	if (status != UDD_EP_TRANSFER_OK)
+		printf("U%d", status);
 }
 
 /* Interrupt handler for SSC.  Linker magic binds this function based on name (startup_sam4s.c) */
@@ -80,17 +108,42 @@ void SSC_Handler(void)
 {
 	uint32_t status = ssc_get_status(SSC);
 
+	if (status & SSC_SR_ENDRX) {
+		struct ssc_buffer *sb_cur = &g_pdc_ssc_rx_buffer[g_pdc_ssc_cur_rx_idx];
+		int next_rx_idx = (g_pdc_ssc_cur_rx_idx + 1) % NUM_RX_BUF_SSC;
+		bool rc;
+		/* refill only the 'next' DMA buffer; PDC has copied previous next to current */
+		pdc_rx_init(g_pdc, NULL, &g_pdc_ssc_rx_buffer[next_rx_idx].packet);
+		//printf("E%d", g_pdc_ssc_cur_rx_idx);
+		/* FIXME: hand over to USB ISO IN */
+		rc = udi_vendor_iso_in_run(sb_cur->buffer, sizeof(sb_cur->buffer), usb_iso_in_cb);
+		if (rc == false) printf("x");
+		g_pdc_ssc_cur_rx_idx = next_rx_idx;
+	}
 	if (status & SSC_SR_RXBUFF) {
-		//printf("R");
-		pdc_rx_init(g_pdc, &g_pdc_ssc_rx_packet1, NULL); /* FIXME: swap buffers */
+		/* this means both current and next buffer have ended.  Shouldn't happen,
+		 * as due to double buffering we always refill the next buffer in ENDRX */
+		printf("RXBUFF!\r\n");
+		/* re-start from scratch */
+		g_pdc_ssc_cur_rx_idx = 0;
+		pdc_rx_init(g_pdc, &g_pdc_ssc_rx_buffer[0].packet, &g_pdc_ssc_rx_buffer[1].packet);
 	}
 #ifdef TX_ENABLE
+	if (status & SSC_SR_ENDTX) {
+		int next_tx_idx = (g_pdc_ssc_cur_tx_idx + 1) % NUM_TX_BUF_SSC;
+		pdc_tx_init(g_pdc, NULL, &g_pdc_ssc_tx_buffer[next_tx_idx].packet);
+		//printf("e%d", g_pdc_ssc_cur_tx_idx);
+		g_pdc_ssc_cur_tx_idx = next_tx_idx;
+	}
 	if (status & SSC_SR_TXBUFE) {
-		pdc_tx_init(g_pdc, &g_pdc_ssc_tx_packet, NULL);
+		printf("TXBUFE!\r\n");
+		g_pdc_ssc_cur_tx_idx = 0;
+		pdc_tx_init(g_pdc, &g_pdc_ssc_tx_buffer[0].packet, &g_pdc_ssc_tx_buffer[1].packet);
 	}
 #endif
 	if (status & SSC_SR_OVRUN) {
 		g_ssc_num_overruns++;
+		printf("OVRUN!\r\n");
 	}
 }
 
@@ -108,7 +161,7 @@ static void fill_tx_buf(uint8_t *buf, unsigned int size)
 	}
 }
 
-void e1_init_gpio()
+void e1_init_gpio(void)
 {
 	printf("%s\n\r", __func__);
 
@@ -136,11 +189,15 @@ void e1_init_gpio()
 	pio_configure_pin(PIO_PA13_IDX, PIO_PERIPH_A); /* LIU_MOSI */
 }
 
-void e1_ssc_init()
+void e1_ssc_init(void)
 {
 	g_pdc = ssc_get_pdc_base(SSC);
 	printf("%s\n\r", __func__);
-	fill_tx_buf(g_pdc_ssc_buffer2, sizeof(g_pdc_ssc_buffer2));
+	ssc_buffer_init(g_pdc_ssc_rx_buffer, ARRAY_SIZE(g_pdc_ssc_rx_buffer));
+	ssc_buffer_init(g_pdc_ssc_tx_buffer, ARRAY_SIZE(g_pdc_ssc_tx_buffer));
+
+	for (int i = 0; i < ARRAY_SIZE(g_pdc_ssc_tx_buffer); i++)
+		fill_tx_buf(g_pdc_ssc_tx_buffer[i].buffer, sizeof(g_pdc_ssc_tx_buffer[i].buffer));
 
 	sysclk_enable_peripheral_clock(ID_SSC);
 
@@ -197,10 +254,10 @@ void e1_ssc_init()
 #endif
 
 	/* set up Peripheral DMA controller */
-	//pdc_rx_init(g_pdc, &g_pdc_ssc_rx_packet0, &g_pdc_ssc_rx_packet1);
-	pdc_rx_init(g_pdc, &g_pdc_ssc_rx_packet0, NULL);
+	g_pdc_ssc_cur_rx_idx = 0;
+	pdc_rx_init(g_pdc, &g_pdc_ssc_rx_buffer[0].packet, &g_pdc_ssc_rx_buffer[1].packet);
 #ifdef TX_ENABLE
-	pdc_tx_init(g_pdc, &g_pdc_ssc_tx_packet, NULL);
+	pdc_tx_init(g_pdc, &g_pdc_ssc_tx_buffer[0].packet, &g_pdc_ssc_tx_buffer[1].packet);
 #endif
 	pdc_enable_transfer(g_pdc, PERIPH_PTCR_RXTEN
 #ifdef TX_ENABLE
@@ -216,9 +273,9 @@ void e1_ssc_init()
 	NVIC_EnableIRQ(SSC_IRQn);
 
 	/* enable SSC interrupts */
-	ssc_enable_interrupt(SSC, SSC_IER_RXBUFF
+	ssc_enable_interrupt(SSC, SSC_IER_RXBUFF | SSC_IER_ENDRX | SSC_IER_OVRUN
 #ifdef TX_ENABLE
-			| SSC_IER_TXBUFE
+			| SSC_IER_TXBUFE | SSC_IER_ENDTX
 #endif
 			);
 
