@@ -130,6 +130,7 @@ static void usb_iso_in_cb(udd_ep_status_t status, iram_size_t nb_transfered, udd
 void SSC_Handler(void)
 {
 	uint32_t status = ssc_get_status(SSC);
+	unsigned int i;
 
 	if (status & SSC_SR_ENDRX) {
 		struct ssc_buffer *sb_cur = &g_pdc_ssc_rx_buffer[g_pdc_ssc_cur_rx_idx];
@@ -139,8 +140,13 @@ void SSC_Handler(void)
 		/* refill only the 'next' DMA buffer; PDC has copied previous next to current */
 		pdc_rx_init(g_pdc, NULL, &g_pdc_ssc_rx_buffer[next_submit_idx].packet);
 		//printf("E%d", g_pdc_ssc_cur_rx_idx);
-		if (g_pdc_ssc_cur_rx_idx == 1)
-			ensure_alignment(sb_cur->buffer);
+		/* reverse byte-order of every DWORD in the buffer to fix timeslot positions */
+		for (i = 0; i < sizeof(sb_cur->buffer); i += 4) {
+			uint32_t *u32 = (uint32_t *) &sb_cur->buffer[i];
+			*u32 = __builtin_bswap32(*u32);
+		}
+		if (g_pdc_ssc_cur_rx_idx == 0)
+			ensure_alignment(sb_cur);
 		/* hand over to USB ISO IN */
 		rc = udi_vendor_iso_in_run(sb_cur->buffer, sizeof(sb_cur->buffer), usb_iso_in_cb);
 		if (rc == false) printf("x");
