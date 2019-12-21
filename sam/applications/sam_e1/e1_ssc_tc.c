@@ -112,7 +112,7 @@ static void ensure_alignment(struct ssc_buffer *buf)
 {
 	unsigned int i;
 	/* check every second TS0 byte for FAS symbol (G.704 Section 2.3) */
-	for (i = 512; i < sizeof(buf->buffer); i += 32*2) {
+	for (i = sizeof(buf->buffer)-512; i < sizeof(buf->buffer); i += 32*2) {
 		if ((buf->buffer[i] & 0x7f) != 0x1b) {
 			e1_tc_align_increment();
 			return;
