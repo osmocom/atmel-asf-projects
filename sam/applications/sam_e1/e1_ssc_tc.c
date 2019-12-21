@@ -256,7 +256,7 @@ void e1_ssc_init(void)
 	};
 
 	printf("ssc_set_receiver\n\r");
-	ssc_set_receiver(SSC, &rx_clk, &rx_opt);
+	ssc_set_receiver(SSC, (clock_opt_t *) &rx_clk, (data_frame_opt_t *) &rx_opt);
 
 #ifdef TX_ENABLE
 	static const clock_opt_t tx_clk = {
@@ -269,8 +269,8 @@ void e1_ssc_init(void)
 		.ul_sttdly = 0,
 	};
 	static const data_frame_opt_t tx_opt = {
-		.ul_datlen = 32-1,
-		.ul_datnb = 8-1,
+		.ul_datlen = 32-1,	/* 32 bit per word */
+		.ul_datnb = 8-1,	/* 8 words (=> 8*32=256 bits) */
 		.ul_fsedge = SSC_TFMR_FSEDGE_POSITIVE,
 		.ul_fslen = 0,
 		.ul_fslen_ext = 0,
@@ -279,7 +279,7 @@ void e1_ssc_init(void)
 	};
 
 	printf("ssc_set_transmitter\n\r");
-	ssc_set_transmitter(SSC, &tx_clk, &tx_opt);
+	ssc_set_transmitter(SSC, (clock_opt_t *) &tx_clk, (data_frame_opt_t *) &tx_opt);
 #endif
 
 	/* set up Peripheral DMA controller */
