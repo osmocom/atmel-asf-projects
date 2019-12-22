@@ -226,12 +226,14 @@ void e1_init_gpio(void)
 
 void e1_ssc_init(void)
 {
+	unsigned int i;
+
 	g_pdc = ssc_get_pdc_base(SSC);
 	printf("%s\n\r", __func__);
 	ssc_buffer_init(g_pdc_ssc_rx_buffer, ARRAY_SIZE(g_pdc_ssc_rx_buffer));
 	ssc_buffer_init(g_pdc_ssc_tx_buffer, ARRAY_SIZE(g_pdc_ssc_tx_buffer));
 
-	for (int i = 0; i < ARRAY_SIZE(g_pdc_ssc_tx_buffer); i++)
+	for (i = 0; i < ARRAY_SIZE(g_pdc_ssc_tx_buffer); i++)
 		fill_tx_buf(g_pdc_ssc_tx_buffer[i].buffer, sizeof(g_pdc_ssc_tx_buffer[i].buffer));
 
 	sysclk_enable_peripheral_clock(ID_SSC);
