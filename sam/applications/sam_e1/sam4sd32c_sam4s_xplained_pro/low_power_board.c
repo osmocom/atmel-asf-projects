@@ -50,66 +50,13 @@
 #include "pmc.h"
 #include "adc.h"
 #include "low_power_board.h"
-
-/** IRQ priority for PIO (The lower the value, the greater the priority) */
-#define IRQ_PRIOR_PIO    0
-
-/** Clock list from fast RC */
-uint32_t g_fastrc_clock_list[][3] = {
-	/* MCK,    FastRC,                  Prescaler */
-	{125000,   CKGR_MOR_MOSCRCF_4_MHz,  PMC_MCKR_PRES_CLK_32},
-	{250000,   CKGR_MOR_MOSCRCF_4_MHz,  PMC_MCKR_PRES_CLK_16},
-	{500000,   CKGR_MOR_MOSCRCF_4_MHz,  PMC_MCKR_PRES_CLK_8},
-	{1000000,  CKGR_MOR_MOSCRCF_4_MHz,  PMC_MCKR_PRES_CLK_4},
-	{2000000,  CKGR_MOR_MOSCRCF_4_MHz,  PMC_MCKR_PRES_CLK_2},
-	{4000000,  CKGR_MOR_MOSCRCF_4_MHz,  PMC_MCKR_PRES_CLK_1},
-	{8000000,  CKGR_MOR_MOSCRCF_8_MHz,  PMC_MCKR_PRES_CLK_1},
-	{12000000, CKGR_MOR_MOSCRCF_12_MHz, PMC_MCKR_PRES_CLK_1}
-};
-
-/** Clock list from PLL */
-uint32_t g_pll_clock_list[][4] = {
-	/* MCK, MUL, DIV, PRES */
-	/* MCK = 12000000 * (7+1) / 1 / 4 = 24 MHz */
-	{24000000, 7, 1, PMC_MCKR_PRES_CLK_4},
-	/* MCK = 12000000 * (7+1) / 1 / 3 = 32 MHz */
-	{32000000, 7, 1, PMC_MCKR_PRES_CLK_3},
-	/* MCK = 12000000 * (7+1) / 1 / 2 = 48 MHz */
-	{48000000, 7, 1, PMC_MCKR_PRES_CLK_2},
-	/* MCK = 12000000 * (31+1) / 3 / 2 = 64 MHz */
-	{64000000, 31, 3, PMC_MCKR_PRES_CLK_2},
-	/* MCK = 12000000 * (13+1) / 1 / 2 = 84 MHz */
-	{84000000, 13, 1, PMC_MCKR_PRES_CLK_2},
-	/* MCK = 12000000 * (24+1) / 1 / 3 = 100 MHz */
-	{100000000, 24, 1, PMC_MCKR_PRES_CLK_3},
-	/* MCK = 12000000 * (19+1) / 1 / 2 = 120 MHz */
-	{120000000, 19, 1, PMC_MCKR_PRES_CLK_2}
-};
-
 /**
  * \brief Initialize SAM4 Xplained Pro board for low power test.
  */
 void init_specific_board(void)
 {
-#if 0
-	/* Configure all PIOs as inputs to save power */
-	pio_set_input(PIOA, 0xFFFFFFFF, PIO_PULLUP);
-	pio_set_input(PIOB, 0xFFFFFFFF, PIO_PULLUP);
-	pio_set_input(PIOC, 0xFFFFFFFF, PIO_PULLUP);
-
-	/* Disable USB Clock */
-	pmc_disable_udpck();
-#endif
 	/* Disable PIO pull-up for PB10(USB_DDM), PB11(USB_DDP) */
 	pio_pull_up(PIOB, (0x3 << 10), 0);
 	/* Disable PIO pull-up for PC21(USB_CNX) */
 	pio_pull_up(PIOC, (0x1 << 21), 0);
-#if 0
-	/* Initialize ADC pin as ADC input mode to save power */
-	adc_enable_channel(ADC, ADC_CHANNEL_4);
-
-	/* Enable the PMC clocks of push button for wakeup */
-	pmc_enable_periph_clk(ID_PIOA);
-	pio_handler_set_priority(PIOA, PIOA_IRQn, IRQ_PRIOR_PIO);
-#endif
 }

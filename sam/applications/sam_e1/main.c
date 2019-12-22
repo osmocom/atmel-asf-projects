@@ -5,7 +5,6 @@
 #include "conf_uart_serial.h"
 #include "conf_usb.h"
 #include "e1_ssc_tc.h"
-#include "low_power_board.h"
 #include "idt82v2081_asf.h"
 
 #include "microvty.h"
@@ -47,17 +46,6 @@
 
 #ifndef example_disable_pll
 #define example_disable_pll()  pmc_disable_pllack()
-#endif
-
-#ifndef example_set_wakeup_from_wait_mode
-#define example_set_wakeup_from_wait_mode() \
-	pmc_set_fast_startup_input(WAKEUP_WAIT_INPUT_ID)
-#endif
-
-#ifndef example_set_wakeup_from_backup_mode
-#define example_set_wakeup_from_backup_mode() \
-	supc_set_wakeup_inputs(SUPC, WAKEUP_BACKUP_INPUT_ID, \
-			WAKEUP_BACKUP_INPUT_ID)
 #endif
 
 /** Current MCK in Hz */
@@ -189,45 +177,6 @@ bool microvty_cb_uart_rx_not_empty(void)
 }
 
 /**
- * \brief Handler for button interrupt.
- *
- * \note This interrupt is for waking up from sleep mode or exiting from active
- * mode.
- */
-static void button_handler(uint32_t ul_id, uint32_t ul_mask)
-{
-	if (PIN_PUSHBUTTON_WAKEUP_ID == ul_id &&
-			PIN_PUSHBUTTON_WAKEUP_MASK == ul_mask) {
-		g_ul_button_pressed = 1;
-	}
-}
-
-/**
- *  \brief Configure the push button.
- *
- *  Configure the PIO as inputs and generate corresponding interrupt when
- *  pressed or released.
- */
-static void configure_button(void)
-{
-	/* Adjust PIO debounce filter parameters, using 10 Hz filter. */
-	pio_set_debounce_filter(PIN_PUSHBUTTON_WAKEUP_PIO,
-			PIN_PUSHBUTTON_WAKEUP_MASK, 10);
-
-	/* Initialize PIO interrupt handlers, see PIO definition in board.h. */
-	pio_handler_set(PIN_PUSHBUTTON_WAKEUP_PIO, PIN_PUSHBUTTON_WAKEUP_ID,
-			PIN_PUSHBUTTON_WAKEUP_MASK, PIN_PUSHBUTTON_WAKEUP_ATTR,
-			button_handler);
-
-	/* Enable PIO controller IRQs. */
-	NVIC_EnableIRQ((IRQn_Type)PIN_PUSHBUTTON_WAKEUP_ID);
-
-	/* Enable PIO line interrupts. */
-	pio_enable_interrupt(PIN_PUSHBUTTON_WAKEUP_PIO,
-			PIN_PUSHBUTTON_WAKEUP_MASK);
-}
-
-/**
  * \brief Display test core menu.
  */
 static void display_menu_core(void)
@@ -253,7 +202,7 @@ static void display_menu_core(void)
 	printf("-----------------------------------------------\n\r");
 	printf("Current configuration:\n\r");
 	printf("  CPU Clock         : MCK=%d Hz\n\r", (int)g_ul_current_mck);
-	if ((efc_get_flash_access_mode(EFC) & EEFC_FMR_FAM) == EEFC_FMR_FAM) {
+	if ((efc_get_flash_access_mode(EFC0) & EEFC_FMR_FAM) == EEFC_FMR_FAM) {
 		printf("  Flash access mode : 64-bit\n\r");
 	} else {
 		printf("  Flash access mode : 128-bit\n\r");
