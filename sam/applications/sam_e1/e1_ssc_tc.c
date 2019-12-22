@@ -86,7 +86,7 @@ static Pdc* g_pdc;
 /* 1024 bytes covers 32 frames of 32bytes (256bits) each.
  * At frame rate of 8000 Hz, this means 1024 bytes represent 4ms */
 #define BUFFER_SIZE	1024
-#define NUM_RX_BUF_SSC	2
+#define NUM_RX_BUF_SSC	4
 #define NUM_TX_BUF_SSC	2
 
 struct ssc_buffer {
