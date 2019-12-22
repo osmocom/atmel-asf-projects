@@ -56,7 +56,7 @@ void e1_tc_align_set(uint8_t pos)
 	tc_write_ra(TC_ALIGN, TC_CHANNEL_ALIGN, pos);
 }
 
-void e1_tc_align_increment(void)
+static void e1_tc_align_increment(void)
 {
 	uint32_t ra = tc_read_ra(TC_ALIGN, TC_CHANNEL_ALIGN);
 
