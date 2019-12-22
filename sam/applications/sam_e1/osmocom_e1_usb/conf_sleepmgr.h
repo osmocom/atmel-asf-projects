@@ -1,0 +1,1 @@
+../sam4sd32c_sam4s_xplained_pro/conf_sleepmgr.h

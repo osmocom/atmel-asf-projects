@@ -129,7 +129,13 @@ static void reconfigure_console(uint32_t ul_mck, uint32_t ul_baudrate)
 
 bool microvty_cb_uart_rx_not_empty(void)
 {
+#if CONSOLE_UART_ID == ID_UART1
 	return usart_serial_is_rx_ready(UART1);
+#elif CONSOLE_UART_ID == ID_UART0
+	return usart_serial_is_rx_ready(UART0);
+#else
+#error "Unsuppoerted CONSOLE_UART_ID"
+#endif
 }
 
 /**

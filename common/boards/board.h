@@ -164,6 +164,7 @@ extern "C" {
 #define AVR_SIMULATOR_UC3          98  //!< Simulator for the AVR UC3 device family.
 #define USER_BOARD                 99  //!< User-reserved board (if any).
 #define DUMMY_BOARD               100  //!< Dummy board to support board-independent applications (e.g. bootloader).
+#define OSMOCOM_E1_USB            255  //!< SAM4S based Osmocom E1 USB board.
 //! @}
 
 /*! \name Extension Boards
@@ -387,6 +388,9 @@ extern "C" {
 #  include "user_board.h"
 #elif BOARD == DUMMY_BOARD
 #  include "dummy/dummy_board.h"
+#elif BOARD == OSMOCOM_E1_USB
+#  include "osmocom_e1_usb/osmocom_e1_usb.h"
+#elif BOARD == USER_BOARD
 #else
 #  error No known Atmel board defined
 #endif
