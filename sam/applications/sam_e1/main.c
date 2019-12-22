@@ -392,7 +392,6 @@ int main(void)
 	/* General SSC for E1 init */
 	e1_init_gpio();
 	e1_tc_align_init();
-	e1_ssc_init();
 
 	/* LIU specific bits */
 	idt82_asf_init(&g_idt, SPI, 1);
@@ -409,6 +408,7 @@ int main(void)
 bool usb_vendor_e1_enable(void)
 {
 	printf("%s\n\r", __func__);
+	e1_ssc_init();
 	return true;
 }
 
@@ -416,6 +416,7 @@ bool usb_vendor_e1_enable(void)
 void usb_vendor_e1_disable(void)
 {
 	printf("%s\n\r", __func__);
+	e1_ssc_exit();
 }
 
 /* handle a control request directed to an interface */

@@ -319,3 +319,19 @@ void e1_ssc_init(void)
 	ssc_enable_tx(SSC);
 #endif
 }
+
+void e1_ssc_exit(void)
+{
+#ifdef TX_ENABLE
+	ssc_disable_tx(SSC);
+#endif
+	ssc_disable_rx(SSC);
+
+	NVIC_DisableIRQ(SSC_IRQn);
+
+	pdc_disable_transfer(g_pdc, PERIPH_PTCR_RXTEN
+#ifdef TX_ENABLE
+			| PERIPH_PTCR_TXTEN
+#endif
+			);
+}

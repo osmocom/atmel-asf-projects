@@ -6,3 +6,4 @@ void e1_tc_align_set(uint8_t pos);
 
 void e1_init_gpio(void);
 void e1_ssc_init(void);
+void e1_ssc_exit(void);
