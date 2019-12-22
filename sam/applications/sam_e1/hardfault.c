@@ -13,17 +13,18 @@ struct hardfault_args {
 	unsigned long pc;
 	unsigned long psr;
 };
+void hard_fault_handler_c(struct hardfault_args *args);
 
 void hard_fault_handler_c(struct hardfault_args *args)
 {
     printf("\r\nHardFault\r\n");
-    printf("R0=%08x, R1=%08x, R2=%08x, R3=%08x, R12=%08x\r\n",
+    printf("R0=%08lx, R1=%08lx, R2=%08lx, R3=%08lx, R12=%08lx\r\n",
 	   args->r0, args->r1, args->r2, args->r3, args->r12);
-    printf("LR[R14]=%08x, PC[R15]=%08x, PSR=%08x\r\n",
+    printf("LR[R14]=%08lx, PC[R15]=%08lx, PSR=%08lx\r\n",
 	   args->lr, args->pc, args->psr);
-    printf("BFAR=%08x, CFSR=%08x, HFSR=%08x\r\n",
+    printf("BFAR=%08lx, CFSR=%08lx, HFSR=%08lx\r\n",
 	   SCB->BFAR, SCB->CFSR, SCB->HFSR);
-    printf("DFSR=%08x, AFSR=%08x, SHCSR=%08x\r\n",
+    printf("DFSR=%08lx, AFSR=%08lx, SHCSR=%08lx\r\n",
 	   SCB->DFSR, SCB->CFSR, SCB->SHCSR);
 
     if (SCB->HFSR & 0x40000000)
