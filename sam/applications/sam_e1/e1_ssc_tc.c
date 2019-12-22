@@ -191,7 +191,9 @@ static void fill_tx_buf(uint8_t *buf, unsigned int size)
 
 	memset(buf, 0xff, size);
 	for (i = 0; i < size; i += 32) {
-		buf[i] = ts0_pattern[j];
+		buf[i+0] = ts0_pattern[j];
+		for (int k=1; k < 32; k++)
+			buf[i+k] = k;//i+k;
 		j = (j + 1) % sizeof(ts0_pattern);
 	}
 }
