@@ -1,28 +1,34 @@
 
 == top prio ==
 
-* USB ISO OUT EP  -> SSC TX DMA
-* USB ISO IN EP <- SSC RX DMA
-* code to do frame alignment inside firmware (osmo_e1f.c)
-** adjusting TC register to do frame alignment
-*** maybe even extend RC from 256 to 16*256=16384 to get full alignment using TC?
+* make protocol compatible with tnt ICE40
+** add 4-byte header to start of every USB transfer
+
+* DFU loader support (from simtrace2)
+* move microvty and logging over to CDC_ACM
+* more LIU control
+** RAW SPI read/write via USB CTRL REQ
+** high-imptedance (external teermination) receiver
+
+* proper transmit side support
+** USB ISO OUT EP  -> SSC TX DMA
 * code to generate CRC4 inside firmware (osmo_e1f.c)
 * code to verify CRC4 inside firmwaer (osmo_e1f.c)
 
 == medium prio ==
 
+* more complete frame alignment inside firmware (osmo_e1f.c)
 * Isochronous feedback endpoint for TX (OUT EP) side
 ** USB driver in kernel should automatically take care of throttling
 * LIU register dump via serial console
 * LIU control via serial console
 ** long/short haul
 ** transmitter enable/disable
-** high-imptedance (external teermination) receiver
 ** generate PRBS in transmitter (MAINT0)
 ** read line attenuation
 * LIU interrupt handling
 ** add pull-up or switch IRQ output to push-pull/active-low (GCF register)
-** report status at the end of USB IN to host + print to console
+** report status via IRQ endpoint
 
 == low prio ==
 
