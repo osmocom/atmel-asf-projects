@@ -273,6 +273,13 @@ void SysTick_Handler(void)
 int main(void)
 {
 	/* Initialize the SAM system */
+#if BOARD == OSMOCOM_E1_USB
+	pmc_enable_periph_clk(ID_PIOB);
+	/* disable VCTCXO before initializing clocking (PB0=ENABLE_VCTCXO) */
+	pio_configure_pin(PIO_PB0_IDX, PIO_TYPE_PIO_OUTPUT_0);
+	/* enable VCXO before initializing clocking (PB1=ENABLE_VCXO) */
+	pio_configure_pin(PIO_PB1_IDX, PIO_TYPE_PIO_OUTPUT_1);
+#endif
 	sysclk_init();
 	g_ul_current_mck = sysclk_get_cpu_hz();
 	board_init();
