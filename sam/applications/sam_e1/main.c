@@ -57,50 +57,6 @@ volatile uint32_t g_ul_ms_ticks;
 volatile uint32_t g_ul_button_pressed = 0;
 
 static struct idt82 g_idt;
-
-/**
- * \brief Set default clock (MCK = 24MHz).
- */
-static void set_default_working_clock(void)
-{
-#if (SAMG)
-	/* Switch MCK to slow clock  */
-	pmc_switch_mck_to_sclk(PMC_MCKR_PRES_CLK_1);
-
-	/*
-	 * Configure PLL and switch clock.
-	 * MCK = XTAL * (PLL_DEFAULT_MUL+1) / PLL_DEFAULT_DIV / MCK_DEFAULT_DIV
-	 *     = 24 MHz
-	 */
-	example_switch_clock(PLL_DEFAULT_MUL, PLL_COUNT, PLL_DEFAULT_DIV,
-			MCK_DEFAULT_DIV);
-#else
-	/* Switch MCK to slow clock  */
-	pmc_switch_mck_to_sclk(PMC_MCKR_PRES_CLK_1);
-
-	/* Switch mainck to external xtal */
-	pmc_switch_mainck_to_xtal(0, BOARD_OSC_STARTUP_US);
-
-	/*
-	 * Configure PLL and switch clock.
-	 * MCK = XTAL * (PLL_DEFAULT_MUL+1) / PLL_DEFAULT_DIV / MCK_DEFAULT_DIV
-	 *     = 24 MHz
-	 */
-	example_switch_clock(PLL_DEFAULT_MUL, PLL_COUNT, PLL_DEFAULT_DIV,
-			MCK_DEFAULT_DIV);
-
-	/* Disable unused clock to save power */
-	pmc_osc_disable_fastrc();
-#endif
-
-	/* Save current clock */
-#if SAMG55
-	g_ul_current_mck = 48000000; /* 48MHz */
-#else
-	g_ul_current_mck = 24000000; /* 24MHz */
-#endif
-}
-
 /**
  *  Configure UART console.
  */
@@ -329,7 +285,6 @@ int main(void)
 	microvty_register(&tca_write_cmd);
 
 	/* Set default clock and re-configure UART */
-	set_default_working_clock();
 	reconfigure_console(g_ul_current_mck, CONF_UART_BAUDRATE);
 
 	/* Output example information */
